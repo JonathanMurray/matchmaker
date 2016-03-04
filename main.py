@@ -2,7 +2,7 @@ import pprint
 import random
 import numpy
 from collections import Counter
-
+import matplotlib.pyplot as plt
 
 
 # DEFINITIONS
@@ -72,6 +72,17 @@ def debug(msg):
 		print msg
 
 
+def plot(players, vals_by_name, ylabel):
+	mmrs = [p.mmr for p in players]
+	yvals = [vals_by_name[p.name] for p in players]
+	plt.xlabel('MMR')
+	plt.ylabel(ylabel)
+	plt.title('Players')
+	plt.plot(mmrs, yvals, 'ro')
+	plt.grid(True)
+	plt.show()
+
+
 
 # ENVIRONMENT
 # -------------------------
@@ -92,6 +103,21 @@ def player_happiness(p_replay, replays):
 		return 100 * (1 - unfairness)
 	else:
 		return - 100 * unfairness
+
+def is_victory(p_replay, replays):
+	index = p_replay.replay_index
+	replay = replays[index]
+	return p_replay.team_number == replay.winner
+
+def player_winrate(name, histories, replays):
+	h = histories[name]
+	return sum([1 if is_victory(pr, replays) else 0 for pr in h]) / float(len(h))
+
+def total_player_happiness(name, histories, replays):
+	if not name in histories:
+		return 0
+	h = histories[name]
+	return sum([player_happiness(pr, replays) for pr in h])
 
 def play(team_1, team_2):
 	mmr1 = avg_mmr(team_1)
@@ -123,8 +149,8 @@ def pick_teams(players):
 # -------------------------
 
 DEBUG = False
-NUM_PLAYERS = 1500
-NUM_GAMES = 30
+NUM_PLAYERS = 100
+NUM_GAMES = 100
 
 replays = []
 player_histories = {}
@@ -147,8 +173,14 @@ for name in player_histories:
 	print str([player_replay_str(pr, replays) for pr in h])
 	print "Happiness: " + str(happiness)
 
+
+active_players = [p for p in players.values() if p.name in player_histories]
+
+happiness_map = dict([(p.name, total_player_happiness(p.name, player_histories, replays)) for p in active_players])
+winrate_map = dict([(p.name, player_winrate(p.name, player_histories, replays)) for p in active_players])
 total_happiness = sum([sum([player_happiness(pr, replays) for pr in h]) for h in player_histories.values()])
 print "Total happiness: " + str(total_happiness)
 
+plot(active_players, winrate_map, "Win-rate")
 
 
