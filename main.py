@@ -1,7 +1,7 @@
 import random
 import numpy
 import matplotlib.pyplot as plt
-from typing import List, Iterable, Sized
+from typing import List, Iterable, Sized, Mapping
 
 # DEFINITIONS
 # --------------------------
@@ -35,10 +35,29 @@ class Replay:
         return "mmr diff: " + str(self.mmr_diff)
 
 
+class Queuer:
+    def __init__(self, player: Player, waited: int):
+        self.player = player
+        self.waited = waited
+
+
+class Match:
+    def __init__(self, team_1: List[Player], team_2: List[Player]):
+        self.team_1 = team_1
+        self.team_2 = team_2
+
+
+class Game:
+    def __init__(self, time_left: int, team_1: List[Player], team_2: List[Player]):
+        self.time_left = time_left
+        self.team_1 = team_1
+        self.team_2 = team_2
+
 # HELPERS
 # --------------------------
 
-def avg_mmr(players: list) -> float:
+
+def avg_mmr(players: List[Player]) -> float:
     return sum([p.mmr for p in players]) / float(len(players))
 
 
@@ -50,7 +69,7 @@ def min_mmr(players: list) -> int:
     return min([p.mmr for p in players])
 
 
-def play_and_save_replay(team_1: list, team_2: list, replays: list) -> None:
+def play_and_save_replay(team_1: List[Player], team_2: List[Player], replays: list) -> None:
     winner_ind = play(team_1, team_2)
     replay = Replay(team_1, team_2, winner_ind)
     replays.append(replay)
@@ -71,7 +90,6 @@ def plot(title: str, x_label: str, x_vals: list, y_label: str, y_vals) -> None:
     plt.title(title)
     plt.plot(x_vals, y_vals, 'ro')
     plt.grid(True)
-    plt.show()
 
 
 def get_random_slice(array: Iterable, slice_size: int) -> list:
@@ -88,7 +106,7 @@ def random_player(name: str) -> Player:
     return Player(name, mmr)
 
 
-def create_players(num: int) -> dict:
+def create_players(num: int) -> Mapping[str, Player]:
     arr = [random_player("p" + str(i)) for i in range(num)]
     return dict([(p.name, p) for p in arr])
 
@@ -110,7 +128,7 @@ def player_happiness(player: Player) -> float:
     return sum([match_happiness(player, r) for r in player.replays])
 
 
-def play(team_1: list, team_2: list) -> int:
+def play(team_1: List[Player], team_2: List[Player]) -> int:
     mmr1 = avg_mmr(team_1)
     mmr2 = avg_mmr(team_2)
     debug(str(mmr1) + " VS " + str(mmr2))
@@ -151,6 +169,28 @@ def pick_teams(players: list) -> (list, list):
     return t1, t2
 
 
+def pick_teams_from_queue(queue: List[Queuer]):
+    t1 = queue[0: TEAM_SIZE]
+    t2 = queue[TEAM_SIZE: TEAM_SIZE*2]
+    return [(t1, t2)]
+
+
+def setup_games(queue: List[Queuer], wait_times: dict) -> List[Match]:
+    matches = pick_teams_from_queue(queue)
+    for t1, t2 in matches:
+        for queuer in t1 + t2:
+            p_wait_times = put_if_absent(wait_times, queuer.player, [])
+            p_wait_times.append(queuer.waited)
+            queue.remove(queuer)
+    return [Match([q.player for q in t1], [q.player for q in t2]) for t1, t2 in matches]
+
+
+def put_if_absent(the_dict: dict, key, default):
+    if key in the_dict:
+        return the_dict[key]
+    the_dict[key] = default
+    return default
+
 # MAIN
 # -------------------------
 
@@ -164,16 +204,33 @@ def main():
     print("Player MMRs: " + str(sorted([p.mmr for p in players.values()])))
 
     replays = []
+    queue = [Queuer(p, 0) for p in players.values()]
+    games = []
+    wait_times = dict()
 
-    for i in range(NUM_GAMES):
-        teams = pick_teams(list(players.values()))
-        play_and_save_replay(teams[0], teams[1], replays)
+    for i in range(100):
+        print(i)
+        for queuer in queue:
+            queuer.waited += 1
+        matches = setup_games(queue, wait_times)
+        for m in matches:
+            games.append(Game(10, m.team_1, m.team_2))
+        for g in list(games):
+            g.time_left -= 1
+            if g.time_left == 0:
+                play_and_save_replay(g.team_1, g.team_2, replays)
+                queue.extend([Queuer(p, 0) for p in g.team_1 + g.team_2])
+                games.remove(g)
 
     active_players = [p for p in players.values() if len(p.replays) > 0]
     winrate_map = dict([(p.name, player_winrate(p)) for p in active_players])
 
     mmr_diffs = [r.max_mmr_diff for r in replays]
-    plot("MMR Differences", "MMR-diff", mmr_diffs, "...", [1] * len(mmr_diffs))
 
+    plt.subplot(121)
+    plot("", "MMR-diff", mmr_diffs, "...", [1] * len(mmr_diffs))
+    plt.subplot(122)
+    plot("", "Queue time", list(wait_times.values()), "...", [1] * len(wait_times))
+    plt.show()
 
 main()
