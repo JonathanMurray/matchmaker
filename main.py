@@ -15,11 +15,8 @@ class Player:
         self.mmr = int(mmr)
         self.replays = []
 
-    def __str__(self):
-        return self.name + "(" + str(self.mmr) + ")"
-
     def __repr__(self):
-        return self.__str__()
+        return self.name + "(" + str(self.mmr) + ")"
 
 
 class Replay:
@@ -39,6 +36,9 @@ class Queuer:
     def __init__(self, player: Player, waited: int):
         self.player = player
         self.waited = waited
+
+    def __repr__(self):
+        return self.player.__repr__() + "[" + str(self.waited) + "s]"
 
 
 class Match:
@@ -61,15 +61,15 @@ def avg_mmr(players: List[Player]) -> float:
     return sum([p.mmr for p in players]) / float(len(players))
 
 
-def max_mmr(players: list) -> int:
+def max_mmr(players: List[Player]) -> int:
     return max([p.mmr for p in players])
 
 
-def min_mmr(players: list) -> int:
+def min_mmr(players: List[Player]) -> int:
     return min([p.mmr for p in players])
 
 
-def play_and_save_replay(team_1: List[Player], team_2: List[Player], replays: list) -> None:
+def play_and_save_replay(team_1: List[Player], team_2: List[Player], replays: List[Replay]) -> None:
     winner_ind = play(team_1, team_2)
     replay = Replay(team_1, team_2, winner_ind)
     replays.append(replay)
@@ -90,6 +90,10 @@ def plot(title: str, x_label: str, x_vals: list, y_label: str, y_vals) -> None:
     plt.title(title)
     plt.plot(x_vals, y_vals, 'ro')
     plt.grid(True)
+
+
+def buckets(x_vals: list) -> None:
+    plt.hist(x_vals)
 
 
 def get_random_slice(array: Iterable, slice_size: int) -> list:
@@ -131,7 +135,7 @@ def player_happiness(player: Player) -> float:
 def play(team_1: List[Player], team_2: List[Player]) -> int:
     mmr1 = avg_mmr(team_1)
     mmr2 = avg_mmr(team_2)
-    debug(str(mmr1) + " VS " + str(mmr2))
+    debug("Avg  " + str(mmr1) + " VS " + str(mmr2))
     diff = mmr2 - mmr1
     rnd = numpy.random.normal(0, 300)
     if rnd < diff:
@@ -142,31 +146,31 @@ def play(team_1: List[Player], team_2: List[Player]) -> int:
 # ENGINE
 # -------------------------
 
-def pick_teams_random(players: Iterable) -> (list, list):
-    picked_players = get_random_slice(players, TEAM_SIZE * 2)
-    team_1 = picked_players[0: TEAM_SIZE]
-    team_2 = picked_players[TEAM_SIZE: TEAM_SIZE * 2]
+def pick_teams_random(queuers: Iterable[Queuer]) -> (List[Player], List[Player]):
+    picked_queuers = get_random_slice(queuers, TEAM_SIZE * 2)
+    team_1 = picked_queuers[0: TEAM_SIZE]
+    team_2 = picked_queuers[TEAM_SIZE: TEAM_SIZE * 2]
     return team_1, team_2
 
 
-def pick_teams_unfair(players: Iterable) -> (list, list):
-    picked_players = get_random_slice(players, TEAM_SIZE * 2)
-    picked_players.sort(key=lambda p: p.mmr)
-    team_1 = picked_players[0: TEAM_SIZE]
-    team_2 = picked_players[TEAM_SIZE: TEAM_SIZE * 2]
+def pick_teams_unfair(queuers: Iterable[Queuer]) -> (List[Player], List[Player]):
+    picked_queuers = get_random_slice(queuers, TEAM_SIZE * 2)
+    picked_queuers.sort(key=lambda p: p.mmr)
+    team_1 = picked_queuers[0: TEAM_SIZE]
+    team_2 = picked_queuers[TEAM_SIZE: TEAM_SIZE * 2]
     return team_1, team_2
 
 
-def pick_teams(players: list) -> (list, list):
-    copy = list(players)
+def pick_teams_advanced(queue: List[Queuer]) -> (List[Queuer], List[Queuer]):
+    copy = list(queue)
     ind = random.randint(0, len(copy) - TEAM_SIZE*2)
-    copy.sort(key=lambda p: p.mmr)
+    copy.sort(key=lambda q: q.player.mmr)
     t1 = []
     t2 = []
     for i in range(TEAM_SIZE):
-        t1.append(copy[(ind + 2*1) % len(copy)])
-        t2.append(copy[(ind + 2*1 + 1) % len(copy)])
-    return t1, t2
+        t1.append(copy[(ind + 2*i)% len(copy)])
+        t2.append(copy[(ind + 2*i + 1) % len(copy)])
+    return [(t1, t2)]
 
 
 def pick_teams_from_queue(queue: List[Queuer]):
@@ -175,14 +179,14 @@ def pick_teams_from_queue(queue: List[Queuer]):
     return [(t1, t2)]
 
 
-def setup_games(queue: List[Queuer], wait_times: dict) -> List[Match]:
-    matches = pick_teams_from_queue(queue)
+def pick_games(queue: List[Queuer], wait_times: dict) -> List[Match]:
+    matches = pick_teams_advanced(queue)
     for t1, t2 in matches:
         for queuer in t1 + t2:
             p_wait_times = put_if_absent(wait_times, queuer.player, [])
             p_wait_times.append(queuer.waited)
             queue.remove(queuer)
-    return [Match([q.player for q in t1], [q.player for q in t2]) for t1, t2 in matches]
+    return [Match([q.player for q in t1], [q.player for q in t2]) for (t1, t2) in matches]
 
 
 def put_if_absent(the_dict: dict, key, default):
@@ -208,13 +212,17 @@ def main():
     games = []
     wait_times = dict()
 
-    for i in range(100):
+    for i in range(10):
         print(i)
         for queuer in queue:
             queuer.waited += 1
-        matches = setup_games(queue, wait_times)
+        matches = pick_games(queue, wait_times)
         for m in matches:
-            games.append(Game(10, m.team_1, m.team_2))
+            games.append(Game(5, m.team_1, m.team_2))
+            print("Found game")
+            print(m.team_1)
+            print(m.team_2)
+            print(".......")
         for g in list(games):
             g.time_left -= 1
             if g.time_left == 0:
@@ -228,9 +236,21 @@ def main():
     mmr_diffs = [r.max_mmr_diff for r in replays]
 
     plt.subplot(121)
-    plot("", "MMR-diff", mmr_diffs, "...", [1] * len(mmr_diffs))
+    # plot("", "MMR-diff", mmr_diffs, "...", [1] * len(mmr_diffs))
+    # plt.subplot(122)
+    # plot("", "Queue time", list(wait_times.values()), "...", [1] * len(wait_times))
+    # plt.show()
+    buckets(mmr_diffs)
+
+    print(mmr_diffs)
+
     plt.subplot(122)
-    plot("", "Queue time", list(wait_times.values()), "...", [1] * len(wait_times))
+
+    all_wait_times = [w for sub in wait_times.values() for w in sub]
+    buckets(all_wait_times)
+
     plt.show()
+    print("done")
+
 
 main()
