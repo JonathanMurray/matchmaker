@@ -5,15 +5,15 @@ import numpy
 
 class Environment:
 
-    def __init__(self, add_player_to_queue):
-        self._add_player_to_queue = add_player_to_queue
+    def __init__(self):
+        self.add_player_to_queue = lambda x: None  # Must be set from outside
         self._inactive_players = []
 
     def one_round(self):
         for inactive in list(self._inactive_players):
             if inactive.time_until_play == 0:
                 self._inactive_players.remove(inactive)
-                self._add_player_to_queue(inactive.player)
+                self.add_player_to_queue(inactive.player)
             else:
                 inactive.time_until_play -= 1
 
