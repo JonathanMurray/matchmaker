@@ -1,18 +1,9 @@
-import matplotlib.pyplot as plt
 from typing import List
-from common import Player, Queuer, Game, Replay
-from engine import pick_games
-from environment import play, create_players
 
-
-def play_and_save_replay(team_1: List[Player], team_2: List[Player], replays: List[Replay]) -> None:
-    winner_ind = play(team_1, team_2)
-    replay = Replay(team_1, team_2, winner_ind)
-    replays.append(replay)
-    for i in range(2):
-        team = (team_1, team_2)[i]
-        for p in team:
-            p.replays.append(replay)
+import matplotlib.pyplot as plt
+from common import Player, Queuer, Replay, Game
+from matchmaker import MatchMaker
+from environment import Environment
 
 
 def plot(title: str, x_label: str, x_vals: list, y_label: str, y_vals) -> None:
@@ -28,59 +19,102 @@ def player_winrate(p: Player) -> float:
     return sum(victories) / float(len(p.replays))
 
 
-DEBUG = True
-NUM_PLAYERS = 100
-NUM_GAMES = 100
+class Main:
 
+    def __init__(self):
+        self.queue = []
+        self.wait_times = dict()
+        self.game_lengths = dict()
+        self.games = []
+        self.afk_players = []
+        self.replays = []
+        self.match_maker = MatchMaker()
+        self.environment = Environment(self.add_to_queue)
+        self._players = dict()
 
-def main():
-    players = create_players(NUM_PLAYERS)
-    print("Player MMRs: " + str(sorted([p.mmr for p in players.values()])))
+    def add_players(self):
+        self._players = self.environment.create_players(NUM_PLAYERS)
+        print("Player MMRs: " + str(sorted([p.mmr for p in self._players.values()])))
+        self.queue = [Queuer(p, 0) for p in self._players.values()]
 
-    replays = []
-    queue = [Queuer(p, 0) for p in players.values()]
-    games = []
-    wait_times = dict()
-
-    for i in range(10):
-        print(i)
-        for queuer in queue:
+    def one_round(self):
+        for queuer in self.queue:
             queuer.waited += 1
-        matches = pick_games(queue, wait_times)
-        for m in matches:
-            games.append(Game(5, m.team_1, m.team_2))
+        lobbies = self.match_maker.find_lobbies(self.queue, self._on_found_lobby)
+        for l in lobbies:
+            self.games.append(self.environment.new_game(l.team_1, l.team_2))
             print("Found game")
-            print(m.team_1)
-            print(m.team_2)
-            print(".......")
-        for g in list(games):
+            print(l.team_1)
+            print(l.team_2)
+        print("Queue size: " + str(len(self.queue)))
+        print("...")
+        for g in list(self.games):
             g.time_left -= 1
             if g.time_left == 0:
-                play_and_save_replay(g.team_1, g.team_2, replays)
-                queue.extend([Queuer(p, 0) for p in g.team_1 + g.team_2])
-                games.remove(g)
+                self._on_game_finished(g)
+        self.environment.one_round()
 
-    active_players = [p for p in players.values() if len(p.replays) > 0]
-    winrate_map = dict([(p.name, player_winrate(p)) for p in active_players])
+    def add_to_queue(self, player: Player):
+        self.queue.append(Queuer(player, 0))
 
-    mmr_diffs = [r.max_mmr_diff for r in replays]
+    def _on_game_finished(self, game: Game) -> None:
+        self.environment.on_game_finished(game.team_1 + game.team_2)
+        self.games.remove(game)
+        replay = Replay(game.team_1, game.team_2, game.winner_index)
+        self.replays.append(replay)
+        for p in game.team_1 + game.team_2:
+            p.replays.append(replay)
+            self._add_mapping(self.game_lengths, p, game.length)
 
-    plt.subplot(121)
-    # plot("", "MMR-diff", mmr_diffs, "...", [1] * len(mmr_diffs))
-    # plt.subplot(122)
-    # plot("", "Queue time", list(wait_times.values()), "...", [1] * len(wait_times))
-    # plt.show()
-    plt.hist(mmr_diffs)
+    def _on_found_lobby(self, queuers: List[Queuer]):
+        for queuer in queuers:
+            self._add_mapping(self.wait_times, queuer.player, queuer.waited)
+            self.queue.remove(queuer)
 
-    print(mmr_diffs)
+    @staticmethod
+    def _add_mapping(the_dict: dict, key, value):
+        array = Main._put_if_absent(the_dict, key, [])
+        array.append(value)
 
-    plt.subplot(122)
+    @staticmethod
+    def _put_if_absent(the_dict: dict, key, default):
+        if key in the_dict:
+            return the_dict[key]
+        the_dict[key] = default
+        return default
 
-    all_wait_times = [w for sub in wait_times.values() for w in sub]
-    plt.hist(all_wait_times)
-
-    plt.show()
-    print("done")
+    def active_players(self):
+        return [p for p in self._players.values() if len(p.replays) > 0]
 
 
-main()
+
+
+
+DEBUG = True
+NUM_PLAYERS = 95
+NUM_ROUNDS = 150
+
+main = Main()
+main.add_players()
+for i in range(NUM_ROUNDS):
+    main.one_round()
+
+winrate_map = dict([(p.name, player_winrate(p)) for p in main.active_players()])
+
+mmr_diffs = [r.max_mmr_diff for r in main.replays]
+
+plt.subplot(221)
+plt.title("max MMR-diff")
+plt.hist(mmr_diffs)
+print(mmr_diffs)
+plt.subplot(222)
+all_wait_times = [w for sub in main.wait_times.values() for w in sub]
+plt.title("queue time")
+plt.hist(all_wait_times)
+plt.subplot(223)
+all_lengths = [l for sub in main.game_lengths.values() for l in sub]
+plt.title("game length")
+plt.hist(all_lengths)
+
+plt.show()
+print("done")

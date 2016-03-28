@@ -35,17 +35,13 @@ class Queuer:
         return self.player.__repr__() + "[" + str(self.waited) + "s]"
 
 
-class Lobby:
-    def __init__(self, team_1: List[Player], team_2: List[Player]):
-        self.team_1 = team_1
-        self.team_2 = team_2
-
-
 class Game:
-    def __init__(self, time_left: int, team_1: List[Player], team_2: List[Player]):
-        self.time_left = time_left
+    def __init__(self, game_length: int, team_1: List[Player], team_2: List[Player], winner_index: int):
+        self.length = game_length
+        self.time_left = game_length
         self.team_1 = team_1
         self.team_2 = team_2
+        self.winner_index = winner_index
 
 
 def avg_mmr(players: List[Player]) -> float:
