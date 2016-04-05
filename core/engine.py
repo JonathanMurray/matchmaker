@@ -38,6 +38,9 @@ class Engine:
         self._players = dict()
         self._data_store = DataStore()
 
+    def queue(self):
+        return self._queue
+
     def add_players(self, num_players):
         self._players = self._environment.create_players(num_players)
         debug("Player MMRs: " + str(sorted([p.mmr for p in self._players.values()])))
