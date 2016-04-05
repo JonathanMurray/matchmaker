@@ -1,6 +1,6 @@
 from typing import List
 
-DEBUG = True
+DEBUG = False
 
 
 class Player:

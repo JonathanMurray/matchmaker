@@ -22,7 +22,7 @@ class MatchMaker:
     def __init__(self, find_lobby):
         self._find_lobby = find_lobby
 
-    def find_lobbies(self, queue: List[Queuer], on_found_lobby) -> List[Lobby]:
+    def find_lobbies(self, queue: List[Queuer], found_lobby_callback) -> List[Lobby]:
         lobbies = []
         while True:
             found = self._find_lobby(queue)
@@ -30,17 +30,16 @@ class MatchMaker:
                 t1, t2 = found
                 lobby = Lobby([q.player for q in t1], [q.player for q in t2])
                 lobbies.append(lobby)
-                on_found_lobby(t1+t2)
+                found_lobby_callback(t1 + t2)
             else:
                 return lobbies
 
 
-def find_by_sorted_mmr(queue: List[Queuer]) -> Lobby:
+def find_by_sorted_mmr(queue: List[Queuer]) -> (List[Queuer], List[Queuer]):
     if len(queue) < TEAM_SIZE*2:
         return None
-    copy = list(queue)
+    copy = sorted_queue(queue)
     ind = random.randint(0, len(copy) - TEAM_SIZE*2)
-    copy.sort(key=lambda q: q.player.mmr)
     t1 = []
     t2 = []
     for i in range(TEAM_SIZE):
@@ -49,16 +48,74 @@ def find_by_sorted_mmr(queue: List[Queuer]) -> Lobby:
     return t1, t2
 
 
-def limited_find_by_sorted_mmr(queue: List[Queuer]) -> Lobby:
-    num_tries = 50
-    mmr_diff_boundary = 300
+def sorted_queue(queue):
+    copy = list(queue)
+    copy.sort(key=lambda q: q.player.mmr)
+    return copy
+
+
+def max_mmr_diff(mmr_boundary):
+    return lambda t1, t2: _max_mmr_diff_filter(t1, t2, mmr_boundary)
+
+
+def _max_mmr_diff_filter(t1, t2, mmr_diff_boundary):
+    players = [q.player for q in t1+t2]
+    diff = abs(max_mmr(players) - min_mmr(players))
+    return diff < mmr_diff_boundary
+
+
+def max_mmr_diff_or_long_wait(mmr_diff_boundary, wait_boundary):
+    return lambda t1, t2: _max_mmr_diff_filter(t1, t2, mmr_diff_boundary) or _long_wait_filter(t1, t2, wait_boundary)
+
+
+def _long_wait_filter(t1, t2, wait_boundary):
+    return any(q.waited > wait_boundary for q in t1 + t2)
+
+
+def filtered_find_by_sorted_mmr(num_tries: int, lobby_filter) -> Lobby:
+    return lambda queue: _filtered_find_by_sorted_mmr(queue, num_tries, lobby_filter)
+
+
+def fair_method(queue: List[Queuer]) -> (List[Queuer], List[Queuer]):
+    if len(queue) < TEAM_SIZE*2:
+        return None
+    num_tries = 10
+    for i in range(num_tries):
+        queuer = queue[i]
+        found = find_lobby_for(queuer, queue)
+        if found is not None:
+            return found
+    return None
+
+
+def find_lobby_for(queuer: Queuer, queue: List[Queuer]):
+    sorted_by_mmr = sorted_queue(queue)
+    ind = index_of(queuer, sorted_by_mmr)
+    pick_right = len(queue) - ind
+    if pick_right >= TEAM_SIZE*2:
+        picked = sorted_by_mmr[ind: ind+TEAM_SIZE*2]
+    else:
+        pick_left = TEAM_SIZE*2 - pick_right
+        picked = sorted_by_mmr[ind - pick_left: ind + pick_right]
+    t1, t2 = [], []
+    for i in range(TEAM_SIZE):
+        t1.append(picked[2*i])
+        t2.append(picked[2*i+1])
+    good_enough = max_mmr_diff_or_long_wait(200, 300)(t1, t2)
+    return (t1, t2) if good_enough else None
+
+
+def index_of(el, arr):
+    return [i for i, x in enumerate(arr) if x == el][0]
+
+
+def _filtered_find_by_sorted_mmr(queue: List[Queuer], num_tries: int, lobby_filter) -> Lobby:
     if len(queue) < TEAM_SIZE*2:
         return None
     for i in range(num_tries):
         t1, t2 = find_by_sorted_mmr(queue)
-        players = [q.player for q in t1+t2]
-        max_mmr_diff = abs(max_mmr(players) - min_mmr(players))
-        if max_mmr_diff < mmr_diff_boundary:
+        valid_lobby = lobby_filter(t1, t2)
+        if valid_lobby:
             return t1, t2
     return None
 
@@ -91,4 +148,6 @@ def _pick_teams_simple(queue: List[Queuer]):
 
 
 simple_matchmaker = MatchMaker(find_by_sorted_mmr)
-advanced_matchmaker = MatchMaker(limited_find_by_sorted_mmr)
+advanced_matchmaker = MatchMaker(filtered_find_by_sorted_mmr(50, max_mmr_diff(300)))
+advanced_matchmaker2 = MatchMaker(filtered_find_by_sorted_mmr(50, max_mmr_diff_or_long_wait(300, 100)))
+fair_matchmaker = MatchMaker(fair_method)

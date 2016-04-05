@@ -1,8 +1,8 @@
 from typing import List
 
 import matplotlib.pyplot as plt
-from common import Player, Queuer, Replay, Game
-from matchmaker import MatchMaker, simple_matchmaker, advanced_matchmaker
+from common import Player, Queuer, Replay, Game, debug
+from matchmaker import MatchMaker, advanced_matchmaker2, fair_matchmaker
 from environment import Environment
 
 
@@ -22,7 +22,7 @@ class Main:
 
     def add_players(self):
         self._players = self.environment.create_players(NUM_PLAYERS)
-        print("Player MMRs: " + str(sorted([p.mmr for p in self._players.values()])))
+        debug("Player MMRs: " + str(sorted([p.mmr for p in self._players.values()])))
         self.queue = [Queuer(p, 0) for p in self._players.values()]
 
     def one_round(self):
@@ -31,11 +31,11 @@ class Main:
         lobbies = self.match_maker.find_lobbies(self.queue, self._on_found_lobby)
         for l in lobbies:
             self.games.append(self.environment.new_game(l.team_1, l.team_2))
-            print("Found game")
-            print(l.team_1)
-            print(l.team_2)
-        print("Queue size: " + str(len(self.queue)))
-        print("...")
+            debug("Found game")
+            debug(l.team_1)
+            debug(l.team_2)
+        debug("Queue size: " + str(len(self.queue)))
+        debug("...")
         for g in list(self.games):
             g.time_left -= 1
             if g.time_left == 0:
@@ -96,17 +96,23 @@ class Main:
         game_length_lists = [v for (k, v) in self.game_lengths.items() if k in players]
         active = [p for p in players if p in self.active_players()]
 
-        print("-----------------------------------------------")
-        print("-------------- SIMULATION IS OVER -------------")
-        print("-----------------------------------------------")
-        print("Queue state: " + str(self.queue))
-        print("Stats players: " + str(players))
-        print("Active: " + str(active))
-
         mmr_diffs = [r.max_mmr_diff for r in replays]
         wait_times = [w for sub in wait_time_lists for w in sub]
         game_lengths = [l for sub in game_length_lists for l in sub]
         win_rates = [Main.player_winrate(p) for p in active]
+
+        print("-----------------------------------------------")
+        print("-------------- SIMULATION IS OVER -------------")
+        print("-----------------------------------------------")
+        print("Number of games: " + str(len(self.replays)))
+        print("Avg queue time: " + str(sum(wait_times) / len(wait_times)))
+        print("Avg max mmr diff: " + str(sum(mmr_diffs) / len(mmr_diffs)))
+        print("Avg game length: " + str(sum(game_lengths) / len(game_lengths)))
+        print("Queue state: " + str(self.queue))
+        print("Stats players: " + str(players))
+        print("Active: " + str(active))
+
+
         return Statistics(mmr_diffs, wait_times, game_lengths, win_rates)
 
     @staticmethod
@@ -126,20 +132,19 @@ class Statistics:
         self.win_rates = win_rates
 
 
-def run_and_plot(plot_index, match_maker, environment):
+def run_and_plot(plot_index, num_plots, match_maker, environment):
     main = Main(match_maker, environment)
     main.add_players()
     for i in range(NUM_ROUNDS):
         main.one_round()
-    target_players = main.players_with_min_mmr(2900)
-    plot(plot_index, main.statistics(target_players))
+    target_players = main.players_with_min_mmr(0)
+    plot(plot_index, num_plots, main.statistics(target_players))
 
 
-def plot(plot_index, statistics: Statistics):
+def plot(plot_index, num_plots, statistics: Statistics):
     ver = 2
     hor = 2
     diagrams = ver * hor
-    num_plots = 2
 
     bins = 20
 
@@ -149,7 +154,7 @@ def plot(plot_index, statistics: Statistics):
 
     plt.subplot(ver * num_plots, hor, 2 + plot_index*diagrams)
     plt.title("queue time")
-    plt.hist(statistics.wait_times, range=[0, 30], bins=bins)
+    plt.hist(statistics.wait_times, range=[0, 50], bins=bins)
 
     plt.subplot(ver * num_plots, hor, 3 + plot_index*diagrams)
     plt.title("game length")
@@ -159,6 +164,7 @@ def plot(plot_index, statistics: Statistics):
     plt.title("win-rate")
     plt.hist(statistics.win_rates, range=[0, 1], bins=bins)
 
-run_and_plot(0, simple_matchmaker, Environment())
-run_and_plot(1, advanced_matchmaker, Environment())
+NUM_PLOTS = 2
+run_and_plot(0, NUM_PLOTS, fair_matchmaker, Environment())
+run_and_plot(1, NUM_PLOTS, advanced_matchmaker2, Environment())
 plt.show()
