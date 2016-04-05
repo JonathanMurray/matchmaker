@@ -6,7 +6,7 @@ from matchmaker import MatchMaker, advanced_matchmaker2, fair_matchmaker
 from environment import Environment
 
 
-class Main:
+class Engine:
 
     def __init__(self, match_maker: MatchMaker, environment: Environment):
         self.queue = []
@@ -61,7 +61,7 @@ class Main:
 
     @staticmethod
     def _add_mapping(the_dict: dict, key, value):
-        array = Main._put_if_absent(the_dict, key, [])
+        array = Engine._put_if_absent(the_dict, key, [])
         array.append(value)
 
     @staticmethod
@@ -91,7 +91,7 @@ class Main:
         return [p for p in self._players.values() if p.mmr > mmr]
 
     def statistics(self, players: List[Player]):
-        replays = [r for r in self.replays if Main._replay_contains_some_player(r, players)]
+        replays = [r for r in self.replays if Engine._replay_contains_some_player(r, players)]
         wait_time_lists = [v for (k, v) in self.wait_times.items() if k in players]
         game_length_lists = [v for (k, v) in self.game_lengths.items() if k in players]
         active = [p for p in players if p in self.active_players()]
@@ -99,7 +99,7 @@ class Main:
         mmr_diffs = [r.max_mmr_diff for r in replays]
         wait_times = [w for sub in wait_time_lists for w in sub]
         game_lengths = [l for sub in game_length_lists for l in sub]
-        win_rates = [Main.player_winrate(p) for p in active]
+        win_rates = [Engine.player_winrate(p) for p in active]
 
         print("-----------------------------------------------")
         print("-------------- SIMULATION IS OVER -------------")
@@ -133,12 +133,12 @@ class Statistics:
 
 
 def run_and_plot(plot_index, num_plots, match_maker, environment):
-    main = Main(match_maker, environment)
-    main.add_players()
+    engine = Engine(match_maker, environment)
+    engine.add_players()
     for i in range(NUM_ROUNDS):
-        main.one_round()
-    target_players = main.players_with_min_mmr(0)
-    plot(plot_index, num_plots, main.statistics(target_players))
+        engine.one_round()
+    target_players = engine.players_with_min_mmr(0)
+    plot(plot_index, num_plots, engine.statistics(target_players))
 
 
 def plot(plot_index, num_plots, statistics: Statistics):
