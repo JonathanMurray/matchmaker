@@ -1,9 +1,9 @@
-from common import Player, Replay, avg_mmr, debug, Game
 from typing import Mapping, List
 import numpy
+from core.common import Player, Replay, avg_mmr, debug, Game, Environment
 
 
-class Environment:
+class BaseEnvironment(Environment):
 
     def __init__(self):
         self.add_player_to_queue = lambda x: None  # Must be set from outside
@@ -22,9 +22,8 @@ class Environment:
             time_until_play = int(numpy.abs(numpy.random.normal(0, 8)))
             self._inactive_players.append(InactivePlayer(p, time_until_play))
 
-    @staticmethod
-    def create_players(num: int) -> Mapping[str, Player]:
-        arr = [Environment._new_player("p" + str(i)) for i in range(num)]
+    def create_players(self, num: int) -> Mapping[str, Player]:
+        arr = [BaseEnvironment._new_player("p" + str(i)) for i in range(num)]
         return dict([(p.name, p) for p in arr])
 
     def new_game(self, team_1: List[Player], team_2: List[Player]) -> Game:
@@ -41,9 +40,8 @@ class Environment:
         debug("New game [" + str(game_length) + "]")
         return Game(game_length, team_1, team_2, win_ind)
 
-    @staticmethod
-    def player_happiness(player: Player) -> float:
-        return sum([Environment._match_happiness(player, r) for r in player.replays])
+    def player_happiness(self, player: Player) -> float:
+        return sum([BaseEnvironment._match_happiness(player, r) for r in player.replays])
 
     @staticmethod
     def _new_player(name: str) -> Player:

@@ -1,38 +1,24 @@
 # ENGINE
 # -------------------------
 
-from common import Queuer, Player, max_mmr, min_mmr
-from typing import Iterable, List
 import random
+from typing import Iterable, List
+from core.common import Queuer, Player, max_mmr, min_mmr, Lobby
 
 TEAM_SIZE = 5
 
 
-class Lobby:
-    def __init__(self, team_1: List[Player], team_2: List[Player]):
-        self.team_1 = team_1
-        self.team_2 = team_2
-
-    def __repr__(self):
-        return "Lobby: " + str(self.team_1) + " VS " + str(self.team_2)
-
-
-class MatchMaker:
+class CompositeMatchmaker:
 
     def __init__(self, find_lobby):
         self._find_lobby = find_lobby
 
-    def find_lobbies(self, queue: List[Queuer], found_lobby_callback) -> List[Lobby]:
-        lobbies = []
-        while True:
+    def find_lobbies(self, queue: List[Queuer], found_lobby_callback) -> None:
+        found = self._find_lobby(queue)
+        while found is not None:
+            t1, t2 = found
+            found_lobby_callback(t1, t2)
             found = self._find_lobby(queue)
-            if found is not None:
-                t1, t2 = found
-                lobby = Lobby([q.player for q in t1], [q.player for q in t2])
-                lobbies.append(lobby)
-                found_lobby_callback(t1 + t2)
-            else:
-                return lobbies
 
 
 def find_by_sorted_mmr(queue: List[Queuer]) -> (List[Queuer], List[Queuer]):
@@ -147,7 +133,7 @@ def _pick_teams_simple(queue: List[Queuer]):
     return [(t1, t2)]
 
 
-simple_matchmaker = MatchMaker(find_by_sorted_mmr)
-advanced_matchmaker = MatchMaker(filtered_find_by_sorted_mmr(50, max_mmr_diff(300)))
-advanced_matchmaker2 = MatchMaker(filtered_find_by_sorted_mmr(50, max_mmr_diff_or_long_wait(300, 100)))
-fair_matchmaker = MatchMaker(fair_method)
+simple_matchmaker = CompositeMatchmaker(find_by_sorted_mmr)
+advanced_matchmaker = CompositeMatchmaker(filtered_find_by_sorted_mmr(50, max_mmr_diff(300)))
+advanced_matchmaker2 = CompositeMatchmaker(filtered_find_by_sorted_mmr(50, max_mmr_diff_or_long_wait(300, 100)))
+fair_matchmaker = CompositeMatchmaker(fair_method)
