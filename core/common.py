@@ -20,7 +20,7 @@ class Replay:
         self.team_2 = team_2
         self.winner_team = (team_1, team_2)[winner_ind]
         self.mmr_diff = avg_mmr(team_2) - avg_mmr(team_1)
-        self.max_mmr_diff = abs(max_mmr(team_1 + team_2) - min_mmr(team_1 + team_2))
+        self.max_mmr_diff = max_mmr_diff(team_1, team_2)
         self.winner_ind = winner_ind
         self.game_length = game_length
 
@@ -117,6 +117,10 @@ def max_mmr(players: List[Player]) -> int:
 
 def min_mmr(players: List[Player]) -> int:
     return min([p.mmr for p in players])
+
+
+def max_mmr_diff(team_1: List[Player], team_2: List[Player]) -> int:
+    return abs(max_mmr(team_1 + team_2) - min_mmr(team_1 + team_2))
 
 
 def debug(msg):

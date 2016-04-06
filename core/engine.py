@@ -1,5 +1,18 @@
+from abc import abstractmethod
 from typing import List, Any
 from core.common import Player, Queuer, Replay, Game, debug, MatchMaker, Environment, Statistics, Lobby
+
+
+class OnGameFinishedListener:
+    @abstractmethod
+    def on_game_finished(self, game: Game) -> None:
+        pass
+
+
+class OnLobbyFoundListener:
+    @abstractmethod
+    def on_lobby_found(self, team_1: List[Queuer], team_2: List[Queuer]) -> None:
+        pass
 
 
 class DataStore:
@@ -37,6 +50,8 @@ class Engine:
         self._lobbies = []
         self._players = dict()
         self._data_store = DataStore()
+        self._on_game_finished_listeners = []
+        self._on_lobby_found_listeners = []
 
     def queue(self):
         return self._queue
@@ -74,6 +89,8 @@ class Engine:
         self._data_store.store_replay(replay)
         for p in game.team_1 + game.team_2:
             p.replays.append(replay)
+        for listener in self._on_game_finished_listeners:
+            listener.on_game_finished(game)
 
     def _on_found_lobby(self, team_1: List[Queuer], team_2: List[Queuer]):
         lobby = Lobby([q.player for q in team_1], [q.player for q in team_2])
@@ -81,6 +98,8 @@ class Engine:
         for queuer in team_1 + team_2:
             self._data_store.store_wait_time(queuer.player, queuer.waited)
             self._queue.remove(queuer)
+        for listener in self._on_lobby_found_listeners:
+            listener.on_lobby_found(team_1, team_2)
 
     def _progress_games(self):
         for g in list(self._games):
