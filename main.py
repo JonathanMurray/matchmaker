@@ -13,7 +13,7 @@ def get_statistics():
 
 
 def run_demo():
-    demo = Demo()
+    demo = Demo(wait_ms=100, bar_height=10, bg_color=(30,30, 80))
     mm = advanced_matchmaker2
     env = BaseEnvironment()
     demo.run(mm, env)
