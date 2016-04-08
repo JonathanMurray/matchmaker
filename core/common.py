@@ -1,4 +1,4 @@
-from typing import List, Mapping
+from typing import List, Any
 from abc import abstractmethod
 
 DEBUG = False
@@ -64,15 +64,15 @@ class MatchMaker:
 class Environment:
 
     @abstractmethod
+    def register_callbacks(self, add_to_queue, remove_from_queue):
+        pass
+
+    @abstractmethod
     def one_round(self) -> None:
         pass
 
     @abstractmethod
-    def on_game_finished(self, players: List[Player]) -> None:
-        pass
-
-    @abstractmethod
-    def create_players(self, num: int) -> Mapping[str, Player]:
+    def on_game_finished(self, game: Game) -> None:
         pass
 
     @abstractmethod
@@ -126,3 +126,7 @@ def max_mmr_diff(team_1: List[Player], team_2: List[Player]) -> int:
 def debug(msg):
     if DEBUG:
         print(msg)
+
+
+def avg(arr: List[Any]):
+    return sum(arr) / len(arr)

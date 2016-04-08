@@ -3,7 +3,7 @@ from typing import List
 import pygame
 import sys
 
-from core.common import Environment, MatchMaker, Game, Queuer, max_mmr_diff
+from core.common import Environment, MatchMaker, Game, Queuer, max_mmr_diff, avg, avg_mmr
 from core.engine import Engine, OnGameFinishedListener, OnLobbyFoundListener
 
 TEAM_SIZE = 5
@@ -13,7 +13,9 @@ class Demo(OnGameFinishedListener, OnLobbyFoundListener):
 
     def on_lobby_found(self, team_1: List[Queuer], team_2: List[Queuer]) -> None:
         self.num_playing += TEAM_SIZE * 2
-        print("New game! max mmr-diff: " + str(max_mmr_diff([q.player for q in team_1], [q.player for q in team_2])))
+        avg_mmr_diff = int(avg_mmr([q.player for q in team_2]) - avg_mmr([q.player for q in team_1]))
+        print("New game: max diff: " + str(max_mmr_diff([q.player for q in team_1], [q.player for q in team_2])) +
+              ", avg diff: " + str(avg_mmr_diff) + ", avg wait: " + str(avg([q.waited for q in team_1 + team_2])))
 
     def on_game_finished(self, game: Game) -> None:
         self.num_playing -= TEAM_SIZE * 2
@@ -35,7 +37,6 @@ class Demo(OnGameFinishedListener, OnLobbyFoundListener):
         self.engine = Engine(match_maker, environment)
         self.engine._on_game_finished_listeners.append(self)
         self.engine._on_lobby_found_listeners.append(self)
-        self.engine.add_players(87)
         self._main_loop()
 
     def _main_loop(self):

@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from typing import List, Any
-from core.common import Player, Queuer, Replay, Game, debug, MatchMaker, Environment, Statistics, Lobby
+from core.common import Player, Queuer, Replay, Game, debug, MatchMaker, Environment, Statistics, Lobby, avg
 
 
 class OnGameFinishedListener:
@@ -44,22 +44,17 @@ class Engine:
     def __init__(self, match_maker: MatchMaker, environment: Environment):
         self._match_maker = match_maker
         self._environment = environment
-        self._environment.add_player_to_queue = self._add_to_queue
+        self._environment.register_callbacks(self._add_to_queue, self._remove_from_queue)
         self._queue = []
         self._games = []
         self._lobbies = []
-        self._players = dict()
+        self.players = dict()
         self._data_store = DataStore()
         self._on_game_finished_listeners = []
         self._on_lobby_found_listeners = []
 
     def queue(self):
         return self._queue
-
-    def add_players(self, num_players):
-        self._players = self._environment.create_players(num_players)
-        debug("Player MMRs: " + str(sorted([p.mmr for p in self._players.values()])))
-        self._queue = [Queuer(p, 0) for p in self._players.values()]
 
     def one_round(self):
         for queuer in self._queue:
@@ -81,9 +76,14 @@ class Engine:
 
     def _add_to_queue(self, player: Player):
         self._queue.append(Queuer(player, 0))
+        if player.name not in self.players:
+            self.players[player.name] = player
+
+    def _remove_from_queue(self, queuer: Queuer):
+        self._queue.remove(queuer)
 
     def _on_game_finished(self, game: Game) -> None:
-        self._environment.on_game_finished(game.team_1 + game.team_2)
+        self._environment.on_game_finished(game)
         self._games.remove(game)
         replay = Replay(game.team_1, game.team_2, game.winner_index, game.length)
         self._data_store.store_replay(replay)
@@ -108,7 +108,7 @@ class Engine:
                 self._on_game_finished(g)
 
     def active_players(self):
-        return [p for p in self._players.values() if len(p.replays) > 0]
+        return [p for p in self.players.values() if len(p.replays) > 0]
 
     @staticmethod
     def player_winrate(p: Player) -> float:
@@ -116,7 +116,7 @@ class Engine:
         return sum(victories) / float(len(p.replays))
 
     def players_with_mmr_between(self, min_mmr, max_mmr):
-        return [p for p in self._players.values() if min_mmr <= p.mmr <= max_mmr]
+        return [p for p in self.players.values() if min_mmr <= p.mmr <= max_mmr]
 
     def statistics(self, players: List[Player]):
         relevant_replays = [r for r in self._data_store.replays if Engine._replay_contains_some_of(r, players)]
@@ -140,6 +140,3 @@ class Engine:
     def _replay_contains_some_of(replay: Replay, players: List[Player]):
         return any(p in (replay.team_1 + replay.team_2) for p in players)
 
-
-def avg(arr: List[Any]):
-    return sum(arr) / len(arr)

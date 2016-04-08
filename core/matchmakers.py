@@ -65,7 +65,7 @@ def filtered_find_by_sorted_mmr(num_tries: int, lobby_filter) -> Lobby:
 def fair_method(queue: List[Queuer]) -> (List[Queuer], List[Queuer]):
     if len(queue) < TEAM_SIZE*2:
         return None
-    num_tries = 10
+    num_tries = min(100, len(queue))
     for i in range(num_tries):
         queuer = queue[i]
         found = find_lobby_for(queuer, queue)
@@ -74,7 +74,7 @@ def fair_method(queue: List[Queuer]) -> (List[Queuer], List[Queuer]):
     return None
 
 
-def find_lobby_for(queuer: Queuer, queue: List[Queuer]):
+def find_lobby_for(queuer: Queuer, queue: List[Queuer]) -> (List[Queuer], List[Queuer]):
     sorted_by_mmr = sorted_queue(queue)
     ind = index_of(queuer, sorted_by_mmr)
     pick_right = len(queue) - ind
@@ -87,8 +87,19 @@ def find_lobby_for(queuer: Queuer, queue: List[Queuer]):
     for i in range(TEAM_SIZE):
         t1.append(picked[2*i])
         t2.append(picked[2*i+1])
-    good_enough = max_mmr_diff_or_long_wait(200, 300)(t1, t2)
-    return (t1, t2) if good_enough else None
+    return (t1, t2) if _is_good_enough(t1, t2) else None
+
+
+def _is_good_enough(t1, t2):
+    if _max_wait(t1, t2) < 300:
+        mmr_boundary = 100 + _max_wait(t1, t2)
+    else:
+        mmr_boundary = 100 + _max_wait(t1, t2) * 2
+    return _max_mmr_diff_filter(t1, t2, mmr_boundary)
+
+
+def _max_wait(t1, t2):
+    return max(q.waited for q in t1 + t2)
 
 
 def index_of(el, arr):
