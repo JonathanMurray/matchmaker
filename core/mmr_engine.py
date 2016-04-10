@@ -1,4 +1,4 @@
-from core.common import MmrEngine, Game
+from core.common import MmrEngine, Game, Environment
 
 
 class BaseMmrEngine(MmrEngine):
@@ -10,5 +10,17 @@ class BaseMmrEngine(MmrEngine):
         for loser in teams[1]:
             loser.mmr -= 100
 
-    def initial_mmr(self):
+    def initial_mmr(self, player_name: str):
         return 2200
+
+
+class CheatingMmrEngine(MmrEngine):
+
+    def __init__(self, environment: Environment):
+        self._environment = environment
+
+    def on_game_finished(self, game: Game):
+        pass
+
+    def initial_mmr(self, player_name: str):
+        return self._environment.get_player_skill(player_name)

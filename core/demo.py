@@ -78,7 +78,7 @@ class Demo(OnGameFinishedListener, OnLobbyFoundListener):
         for i, queuer in enumerate(self.engine.queue()):
             width_divider = 8
             w = queuer.player.mmr / width_divider
-            line_w = self.environment.get_player_skill(queuer.player.name) / width_divider
+            line_x = self.environment.get_player_skill(queuer.player.name) / width_divider
             line_color = (255, 255, 255)
             x = 10
             space = 1
@@ -90,7 +90,7 @@ class Demo(OnGameFinishedListener, OnLobbyFoundListener):
             else:
                 color = (255, 0, 0)
             pygame.draw.rect(self.screen, color, rect)
-            pygame.draw.rect(self.screen, line_color, (line_w, y, 3, self.bar_height))
+            pygame.draw.rect(self.screen, line_color, (x + line_x, y, 3, self.bar_height))
 
         longest_wait = 0
         if len(self.engine.queue()) > 0:

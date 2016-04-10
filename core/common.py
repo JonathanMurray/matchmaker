@@ -95,7 +95,7 @@ class MmrEngine:
         pass
 
     @abstractmethod
-    def initial_mmr(self):
+    def initial_mmr(self, player_name: str):
         pass
 
 

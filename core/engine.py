@@ -79,7 +79,7 @@ class Engine:
         if player_name in self.players:
             player = self.players[player_name]
         else:
-            mmr = self._mmr_engine.initial_mmr()
+            mmr = self._mmr_engine.initial_mmr(player_name)
             player = Player(player_name, mmr)
             self.players[player_name] = player
         self._queue.append(Queuer(player, 0))

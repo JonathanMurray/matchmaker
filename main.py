@@ -2,7 +2,7 @@ from core.demo import Demo
 from core.engine import Engine
 from core.matchmakers import fair_matchmaker, advanced_matchmaker2
 from core.environments import AdvancedEnvironment, SimpleEnvironment
-from core.mmr_engine import BaseMmrEngine
+from core.mmr_engine import BaseMmrEngine, CheatingMmrEngine
 from core.runner import Runner
 from myMatchMaker import MyMatchMaker
 
@@ -17,8 +17,8 @@ def get_statistics():
 def run_demo():
     demo = Demo(wait_ms=100, bar_height=10, bg_color=(30, 30, 80))
     mm = advanced_matchmaker2
-    mmr_engine = BaseMmrEngine()
     env = SimpleEnvironment()
+    mmr_engine = CheatingMmrEngine(env)
     demo.run(mm, mmr_engine, env, skip_rounds=60)
 
 
