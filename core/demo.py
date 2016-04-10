@@ -3,22 +3,13 @@ from typing import List
 import pygame
 import sys
 
-from core.common import Environment, MatchMaker, Game, Queuer, max_mmr_diff, avg, avg_mmr
+from core.common import Environment, MatchMaker, Game, Queuer, max_mmr_diff, avg, avg_mmr, MmrEngine
 from core.engine import Engine, OnGameFinishedListener, OnLobbyFoundListener
 
 TEAM_SIZE = 5
 
 
 class Demo(OnGameFinishedListener, OnLobbyFoundListener):
-
-    def on_lobby_found(self, team_1: List[Queuer], team_2: List[Queuer]) -> None:
-        self.num_playing += TEAM_SIZE * 2
-        avg_mmr_diff = int(avg_mmr([q.player for q in team_2]) - avg_mmr([q.player for q in team_1]))
-        print("New game: max diff: " + str(max_mmr_diff([q.player for q in team_1], [q.player for q in team_2])) +
-              ", avg diff: " + str(avg_mmr_diff) + ", avg wait: " + str(avg([q.waited for q in team_1 + team_2])))
-
-    def on_game_finished(self, game: Game) -> None:
-        self.num_playing -= TEAM_SIZE * 2
 
     def __init__(self, width=800, height=600, bar_height=10, wait_ms=100, bg_color=(50, 50, 50), text_color=(255, 255, 255)):
         pygame.init()
@@ -27,19 +18,43 @@ class Demo(OnGameFinishedListener, OnLobbyFoundListener):
         self.bar_height = bar_height
         self.screen = pygame.display.set_mode((self.width, self.height))
         self.engine = None
+        self.environment = None
         self.wait_ms = wait_ms
         self.bg_color = bg_color
         self.font = pygame.font.Font(None, 22)
         self.text_color = text_color
         self.num_playing = 0
+        self._currently_skipping_rounds = False
 
-    def run(self, match_maker: MatchMaker, environment: Environment):
-        self.engine = Engine(match_maker, environment)
+    def on_lobby_found(self, team_1: List[Queuer], team_2: List[Queuer]) -> None:
+        self.num_playing += TEAM_SIZE * 2
+        avg_mmr_diff = int(avg_mmr([q.player for q in team_2]) - avg_mmr([q.player for q in team_1]))
+        max_mmr_d = max_mmr_diff([q.player for q in team_1], [q.player for q in team_2])
+        names = [q.player.name for q in team_1 + team_2]
+        skills = [self.environment.get_player_skill(name) for name in names]
+        max_skill_d = max(skills) - min(skills)
+        if not self._currently_skipping_rounds:
+            print("New game: max diff: " + str(max_mmr_d) +
+                  ", avg diff: " + str(avg_mmr_diff) +
+                  ", max skill diff: " + str(max_skill_d) +
+                  ", avg wait: " + str(avg([q.waited for q in team_1 + team_2])))
+
+    def on_game_finished(self, game: Game) -> None:
+        self.num_playing -= TEAM_SIZE * 2
+
+    def run(self, match_maker: MatchMaker, mmr_engine: MmrEngine, environment: Environment, skip_rounds: int = 0):
+
+        self.engine = Engine(match_maker, mmr_engine, environment)
         self.engine._on_game_finished_listeners.append(self)
         self.engine._on_lobby_found_listeners.append(self)
-        self._main_loop()
+        self.environment = environment
+        self._main_loop(skip_rounds)
 
-    def _main_loop(self):
+    def _main_loop(self, skip_rounds: int):
+        self._currently_skipping_rounds = True
+        for i in range(skip_rounds):
+            self.engine.one_round()
+        self._currently_skipping_rounds = False
         self._render()
         pygame.time.wait(1000)
         while True:
@@ -61,7 +76,10 @@ class Demo(OnGameFinishedListener, OnLobbyFoundListener):
     def _render(self):
         pygame.draw.rect(self.screen, self.bg_color, (0, 0, self.width, self.height))
         for i, queuer in enumerate(self.engine.queue()):
-            w = queuer.player.mmr / 8
+            width_divider = 8
+            w = queuer.player.mmr / width_divider
+            line_w = self.environment.get_player_skill(queuer.player.name) / width_divider
+            line_color = (255, 255, 255)
             x = 10
             space = 1
             top_space = 50
@@ -72,6 +90,7 @@ class Demo(OnGameFinishedListener, OnLobbyFoundListener):
             else:
                 color = (255, 0, 0)
             pygame.draw.rect(self.screen, color, rect)
+            pygame.draw.rect(self.screen, line_color, (line_w, y, 3, self.bar_height))
 
         longest_wait = 0
         if len(self.engine.queue()) > 0:

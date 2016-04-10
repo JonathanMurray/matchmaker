@@ -83,6 +83,21 @@ class Environment:
     def player_happiness(self, player: Player) -> float:
         pass
 
+    @abstractmethod
+    def get_player_skill(self, player_name: str) -> int:
+        pass
+
+
+class MmrEngine:
+
+    @abstractmethod
+    def on_game_finished(self, game: Game):
+        pass
+
+    @abstractmethod
+    def initial_mmr(self):
+        pass
+
 
 class Statistics:
     def __init__(self,
@@ -121,7 +136,6 @@ def min_mmr(players: List[Player]) -> int:
 
 def max_mmr_diff(team_1: List[Player], team_2: List[Player]) -> int:
     return abs(max_mmr(team_1 + team_2) - min_mmr(team_1 + team_2))
-
 
 def debug(msg):
     if DEBUG:

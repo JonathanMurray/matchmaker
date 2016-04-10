@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from typing import List, Any
-from core.common import Player, Queuer, Replay, Game, debug, MatchMaker, Environment, Statistics, Lobby, avg
+from core.common import Player, Queuer, Replay, Game, debug, MatchMaker, Environment, Statistics, Lobby, avg, MmrEngine
 
 
 class OnGameFinishedListener:
@@ -41,8 +41,9 @@ class DataStore:
 
 class Engine:
 
-    def __init__(self, match_maker: MatchMaker, environment: Environment):
+    def __init__(self, match_maker: MatchMaker, mmr_engine: MmrEngine, environment: Environment):
         self._match_maker = match_maker
+        self._mmr_engine = mmr_engine
         self._environment = environment
         self._environment.register_callbacks(self._add_to_queue, self._remove_from_queue)
         self._queue = []
@@ -74,16 +75,21 @@ class Engine:
             debug(l.team_2)
         self._lobbies = []
 
-    def _add_to_queue(self, player: Player):
+    def _add_to_queue(self, player_name: str):
+        if player_name in self.players:
+            player = self.players[player_name]
+        else:
+            mmr = self._mmr_engine.initial_mmr()
+            player = Player(player_name, mmr)
+            self.players[player_name] = player
         self._queue.append(Queuer(player, 0))
-        if player.name not in self.players:
-            self.players[player.name] = player
 
     def _remove_from_queue(self, queuer: Queuer):
         self._queue.remove(queuer)
 
     def _on_game_finished(self, game: Game) -> None:
         self._environment.on_game_finished(game)
+        self._mmr_engine.on_game_finished(game)
         self._games.remove(game)
         replay = Replay(game.team_1, game.team_2, game.winner_index, game.length)
         self._data_store.store_replay(replay)

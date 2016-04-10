@@ -146,5 +146,5 @@ def _pick_teams_simple(queue: List[Queuer]):
 
 simple_matchmaker = CompositeMatchmaker(find_by_sorted_mmr)
 advanced_matchmaker = CompositeMatchmaker(filtered_find_by_sorted_mmr(50, max_mmr_diff(300)))
-advanced_matchmaker2 = CompositeMatchmaker(filtered_find_by_sorted_mmr(50, max_mmr_diff_or_long_wait(300, 100)))
+advanced_matchmaker2 = CompositeMatchmaker(filtered_find_by_sorted_mmr(50, max_mmr_diff_or_long_wait(300, 60*5)))
 fair_matchmaker = CompositeMatchmaker(fair_method)

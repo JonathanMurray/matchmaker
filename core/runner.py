@@ -21,7 +21,6 @@ class Runner:
 
     def _run_and_plot(self, plot_index, num_plots, name, match_maker, environment):
         engine = Engine(match_maker, environment)
-        engine.add_players(self.num_players)
         for i in range(self.num_rounds):
             engine.one_round()
         target_players = engine.players_with_mmr_between(self.min_mmr, self.max_mmr)
