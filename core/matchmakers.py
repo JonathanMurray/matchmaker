@@ -3,12 +3,12 @@
 
 import random
 from typing import Iterable, List
-from core.common import Queuer, Player, max_mmr, min_mmr, Lobby
+from core.common import Queuer, Player, max_mmr, min_mmr, Lobby, MatchMaker
 
 TEAM_SIZE = 5
 
 
-class CompositeMatchmaker:
+class CompositeMatchmaker(MatchMaker):
 
     def __init__(self, find_lobby):
         self._find_lobby = find_lobby
