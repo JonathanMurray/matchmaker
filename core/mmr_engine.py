@@ -19,8 +19,10 @@ class CheatingMmrEngine(MmrEngine):
     def __init__(self, environment: Environment):
         self._environment = environment
 
+    # no need to change MMR as it's always 100% accurate
     def on_game_finished(self, game: Game):
         pass
 
+    # cheating by using players' actual skill-level as their MMR
     def initial_mmr(self, player_name: str):
         return self._environment.get_player_skill(player_name)

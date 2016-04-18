@@ -76,6 +76,8 @@ class Engine:
         self._lobbies = []
 
     def _add_to_queue(self, player_name: str):
+        if not isinstance(player_name, str):
+            raise Exception("Bad argument: " + player_name)
         if player_name in self.players:
             player = self.players[player_name]
         else:
@@ -85,6 +87,8 @@ class Engine:
         self._queue.append(Queuer(player, 0))
 
     def _remove_from_queue(self, queuer: Queuer):
+        if not isinstance(queuer, Queuer):
+            raise Exception("Bad argument: " + str(queuer))
         self._queue.remove(queuer)
 
     def _on_game_finished(self, game: Game) -> None:
@@ -99,6 +103,9 @@ class Engine:
             listener.on_game_finished(game)
 
     def _on_found_lobby(self, team_1: List[Queuer], team_2: List[Queuer]):
+        if not (isinstance(team_1, List[Queuer]) and isinstance(team_2, List[Queuer])):
+            raise Exception("Bad arguments: " + str(team_1) + ", " + str(team_2))
+
         lobby = Lobby([q.player for q in team_1], [q.player for q in team_2])
         self._lobbies.append(lobby)
         for queuer in team_1 + team_2:
@@ -145,4 +152,3 @@ class Engine:
     @staticmethod
     def _replay_contains_some_of(replay: Replay, players: List[Player]):
         return any(p in (replay.team_1 + replay.team_2) for p in players)
-
